@@ -3,8 +3,13 @@ import re
 from openpyxl import Workbook
 import hashlib
 
-# Function to initialize regular expressions
 def initialize_regex():
+    """
+    Initialize the dictionary of regular expressions for different match types.
+
+    Returns:
+        dict: A dictionary containing regular expressions for different match types.
+    """
     regex_dict = {
         'IPv4': re.compile(r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}'),
         'IPv6': re.compile(r'(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}'),
@@ -13,17 +18,43 @@ def initialize_regex():
     }
     return regex_dict
 
-# Function to save packet data to a sheet
 def save_packet_data(sheet, packet):
+    """
+    Save packet data to a worksheet.
+
+    Args:
+        sheet (openpyxl.Worksheet): The worksheet object to save the packet data to.
+        packet (pyshark.packet.Packet): The packet object containing the data to be saved.
+
+    Returns:
+        None
+
+    Raises:
+        None
+
+    """
     packet_info = [packet.number, packet.sniff_timestamp, packet.length, packet.transport_layer]
     sheet.append(packet_info)
 
-# Function to process packets and match regex patterns
 def process_packets(cap, regex_dict, workbook):
+    """
+    Process packets from a capture file and generate a summary of matches.
+
+    Args:
+        cap (pyshark.FileCapture): The capture file object.
+        regex_dict (dict): A dictionary containing regex patterns for different match types.
+        workbook (openpyxl.Workbook): The workbook object to store the packet data and summary.
+
+    Returns:
+        openpyxl.Workbook: The updated workbook object with packet data and summary.
+
+    Raises:
+        None
+
+    """
     summary_dict = {}
     packet_counter = 1
 
-    # Create summary sheet first
     summary_sheet = workbook.create_sheet(title='Summary')
     summary_sheet.append(['Match Type', 'Match Value', 'Count', 'Packet Numbers'])
 
@@ -46,7 +77,6 @@ def process_packets(cap, regex_dict, workbook):
                 for match in matches:
                     data_sheet.append([match])
 
-                    # Update summary dictionary
                     if regex_name in summary_dict:
                         if match in summary_dict[regex_name]:
                             summary_dict[regex_name][match]['count'] += 1
@@ -58,7 +88,6 @@ def process_packets(cap, regex_dict, workbook):
 
         packet_counter += 1
 
-    # Populate summary sheet with unique matches, count, and packet numbers
     for regex_name, matches in summary_dict.items():
         for match, data in matches.items():
             packet_numbers = ', '.join(map(str, data['packets']))
@@ -66,8 +95,24 @@ def process_packets(cap, regex_dict, workbook):
 
     return workbook
 
-# Function to calculate file hash
 def calculate_file_hash(file_path):
+    """
+    Calculate the SHA256 hash of a file.
+
+    Parameters:
+    - file_path (str): The path to the file.
+
+    Returns:
+    - str: The SHA256 hash of the file.
+
+    Example:
+    >>> calculate_file_hash('path/to/file.txt')
+    '3a5b8c7d9e1f2a4b6c8d0e2f4a6b8c0d2e4f6a8b0c2d4e6f8a0b2c4d6e8f0a'
+
+    Note:
+    - This function reads the file in chunks of 8192 bytes to minimize memory usage.
+    - The file is read in binary mode ('rb') to ensure compatibility with all file types.
+    """
     hasher = hashlib.sha256()
     with open(file_path, 'rb') as file:
         while chunk := file.read(8192):
@@ -75,17 +120,12 @@ def calculate_file_hash(file_path):
     file_hash = hasher.hexdigest()
     return file_hash
 
-def run_process(file_path, output_file):
-    print(f"Hash pliku Excela ({file_path}): {calculate_file_hash(file_path)}")
-    cap = pyshark.FileCapture(file_path)
-    regex_dict = initialize_regex()
-    workbook = Workbook()
-    workbook = process_packets(cap, regex_dict, workbook)
-    workbook.remove(workbook['Sheet'])
-    workbook.save(output_file)
-    cap.close()
-    print(f"Hash pliku Excela ({output_file}): {calculate_file_hash(output_file)}")
-
 file_path = ''
-output_file =file_path[:-5]+'_output.xlsx'
-run_process(file_path, output_file)
+output_file = file_path[:-5]+'_output.xlsx'
+cap = pyshark.FileCapture(file_path)
+regex_dict = initialize_regex()
+workbook = Workbook()
+workbook = process_packets(cap, regex_dict, workbook)
+workbook.remove(workbook['Sheet'])
+workbook.save(output_file)
+cap.close()
